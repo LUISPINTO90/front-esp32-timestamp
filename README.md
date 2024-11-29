@@ -1,36 +1,89 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-## Getting Started
+# Front ESP32 Timestamp
 
-First, run the development server:
+## Pasos para ejecutar el proyecto
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+1. Clonar el repositorio:
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+   ```bash
+   git clone https://github.com/LUISPINTO90/front-esp32-timestamp.git
+   ```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+2. Entrar al directorio del proyecto:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+   ```bash
+   cd .\front-esp32-timestamp\
+   ```
 
-## Learn More
+3. Abrir el proyecto en Visual Studio Code:
 
-To learn more about Next.js, take a look at the following resources:
+   ```bash
+   code .
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+4. Instalar las dependencias:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+   ```bash
+   npm i --force
+   ```
 
-## Deploy on Vercel
+5. Levantar los servicios con Docker Compose:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+   ```bash
+   docker-compose up -d
+   ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+6. Crear un archivo `.env` con el siguiente contenido:
+
+   ```env
+   DATABASE_URL=postgresql://admin:admin@localhost:5432/mqtt_database
+   ```
+
+7. Generar el cliente de Prisma:
+
+   ```bash
+   npx prisma generate
+   ```
+
+8. Aplicar las migraciones de la base de datos:
+
+   ```bash
+   npx prisma migrate dev --name init
+   ```
+
+## Visualizar la base de datos con PgAdmin
+
+1. Abrir PgAdmin y realizar lo siguiente:
+
+   - Crear un grupo de servidores:
+     - **Name**: `Mqtt`
+
+2. Dentro de este grupo, registrar un nuevo servidor:
+   - **Name**: `mqtt_postgres`
+
+3. En la pestaña **Connection**, configurar los siguientes campos:
+   - **Host name/address**: `localhost`
+   - **Maintenance database**: `mqtt_database`
+   - **Username**: `admin`
+   - **Password**: `admin`
+
+4. Navegar en la estructura:
+   ```
+   Mqtt > Databases > mqtt_database > Schemas > Tables > TimestampMessage
+   ```
+
+5. Dar clic derecho en `TimestampMessage` y seleccionar:
+   - `View/Edit Data > All Rows`
+
+6. Para verificar cambios al enviar un tópico (`esp32/timestamps`) desde **MQTTX**:
+   - Presionar `fn + F5` o el ícono de **Execute Script**.
+
+## Ejecutar el Frontend
+
+1. Iniciar el servidor de desarrollo:
+
+   ```bash
+   npm run dev
+   ```
+
+El frontend debería estar funcionando. Al enviar un tópico (`esp32/timestamps`) desde **MQTTX**, los datos se guardarán en la base de datos y se mostrarán en el frontend.
