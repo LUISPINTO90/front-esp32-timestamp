@@ -1,0 +1,16 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model TimestampMessage {
+  id               Int      @id @default(autoincrement())
+  arduinoTimestamp DateTime
+  esp32Timestamp   DateTime
+  timeDiff         Float
+  receivedAt       DateTime @default(now())
+}

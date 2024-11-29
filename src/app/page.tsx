@@ -1,4 +1,4 @@
-"use client"; // Importante: agregar esto para Next.js 13+
+"use client";
 
 import React, { useEffect, useState } from "react";
 import mqtt, { MqttClient } from "mqtt";
@@ -28,9 +28,14 @@ const MQTTDashboard = () => {
   const [connectionStatus, setConnectionStatus] = useState("Iniciando...");
 
   useEffect(() => {
-    console.log("Iniciando conexión MQTT...");
+    const fetchMessages = async () => {
+      const res = await fetch("/api/messages");
+      const data = await res.json();
+      setMessages(data);
+    };
 
-    // Configuración del cliente MQTT usando EMQX broker
+    fetchMessages();
+
     const mqttClient = mqtt.connect("wss://broker.emqx.io:8084/mqtt", {
       clientId: `nextjs_${Math.random().toString(16).slice(2, 8)}`,
       clean: true,
@@ -40,60 +45,41 @@ const MQTTDashboard = () => {
     });
 
     mqttClient.on("connect", () => {
-      console.log("✅ Conectado al broker EMQX");
       setConnected(true);
       setConnectionStatus("Conectado");
+      mqttClient.subscribe("esp32/timestamps");
+    });
 
-      console.log("Intentando suscribirse a esp32/timestamps...");
-      mqttClient.subscribe("esp32/timestamps", (err) => {
-        if (err) {
-          console.error("❌ Error al suscribirse:", err);
-          setConnectionStatus("Error en suscripción");
-        } else {
-          console.log("✅ Suscrito al tópico esp32/timestamps");
-          setConnectionStatus("Suscrito y esperando mensajes");
+    mqttClient.on("message", async (topic, message) => {
+      if (topic === "esp32/timestamps") {
+        try {
+          const payload = JSON.parse(message.toString());
+          const arduinoDate = new Date(payload.arduinoTimestamp);
+          const esp32Date = new Date(payload.esp32Timestamp);
+
+          const timeDiff = (esp32Date.getTime() - arduinoDate.getTime()) / 1000;
+
+          const newMessage: TimestampMessage = {
+            arduinoTimestamp: payload.arduinoTimestamp,
+            esp32Timestamp: payload.esp32Timestamp,
+            timeDiff,
+            receivedAt: new Date().toISOString(),
+            id: Date.now(),
+          };
+
+          // Enviar al servidor
+          await fetch("/api/messages", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(newMessage),
+          });
+
+          setMessages((prev) => [...prev, newMessage]);
+        } catch (error) {
+          console.error("❌ Error al procesar el mensaje:", error);
         }
-      });
-    });
-
-    mqttClient.on("error", (err) => {
-      console.error("❌ Error de conexión:", err);
-      setConnected(false);
-      setConnectionStatus(`Error: ${err.message}`);
-    });
-
-    mqttClient.on("offline", () => {
-      console.log("❌ Cliente MQTT desconectado");
-      setConnected(false);
-      setConnectionStatus("Desconectado");
-    });
-
-    mqttClient.on("reconnect", () => {
-      console.log("🔄 Intentando reconectar...");
-      setConnectionStatus("Reconectando...");
-    });
-
-    mqttClient.on("message", (topic, message) => {
-      console.log(`📨 Mensaje recibido en ${topic}:`, message.toString());
-      try {
-        const payload = JSON.parse(message.toString());
-        const arduinoDate = new Date(payload.arduinoTimestamp);
-        const esp32Date = new Date(payload.esp32Timestamp);
-
-        const timeDiff = (esp32Date.getTime() - arduinoDate.getTime()) / 1000;
-
-        const newMessage: TimestampMessage = {
-          arduinoTimestamp: payload.arduinoTimestamp,
-          esp32Timestamp: payload.esp32Timestamp,
-          timeDiff,
-          receivedAt: new Date().toISOString(),
-          id: Date.now(),
-        };
-
-        setMessages((prev) => [...prev, newMessage]);
-        console.log("✅ Mensaje procesado correctamente");
-      } catch (error) {
-        console.error("❌ Error al procesar el mensaje:", error);
       }
     });
 
@@ -101,7 +87,6 @@ const MQTTDashboard = () => {
 
     return () => {
       if (mqttClient) {
-        console.log("Cerrando conexión MQTT...");
         mqttClient.end();
       }
     };
